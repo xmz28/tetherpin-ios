@@ -2,11 +2,15 @@
 import asyncio
 import os
 import queue
+import shutil
+import subprocess
+import sys
 import tempfile
 import threading
 import tkinter as tk
 import urllib.request
-from tkinter import ttk
+from pathlib import Path
+from tkinter import messagebox, ttk
 from types import SimpleNamespace
 
 from osm_map import MapPicker
@@ -21,6 +25,8 @@ PRESETS = {
     "旧金山 · 市中心": (37.7749, -122.4194),
 }
 CUSTOM = "自定义坐标"
+APPLE_DEVICES_ID = "9NP83LWLPZ9K"
+APPLE_STORE_URI = f"ms-windows-store://pdp/?ProductId={APPLE_DEVICES_ID}"
 RESTORE = "已停止。请拔下 USB，在苹果地图点「我的位置」确认已恢复。"
 IDENTITY_VARS = (
     "IAP2_LOCATION_BRIDGE_WINDOWS_CERT_FILE",
@@ -53,6 +59,11 @@ def prepare_identity(stopped, update):
     )
 
     directory = default_identity_dir()
+    bundle = getattr(sys, "_MEIPASS", None)
+    if bundle:
+        embedded = Path(bundle) / "bundled_identity"
+        if embedded.is_dir():
+            directory = embedded
     if not directory.exists():
         update("首次使用，正在下载配件认证材料…")
         with tempfile.TemporaryFile() as stream:
@@ -189,6 +200,11 @@ class LocationApp:
             row=7, sticky="ew", pady=(14, 0),
         )
 
+        self.install_button = ttk.Button(
+            side, text="安装 Apple USB 支持", command=self.install_apple_devices,
+        )
+        self.install_button.grid(row=8, sticky="ew", pady=(7, 0))
+
         root.protocol("WM_DELETE_WINDOW", self.close)
         self.select_place()
         root.after(75, self.poll)
@@ -234,6 +250,45 @@ class LocationApp:
         except OSError:
             self.status.set("请从 Microsoft Store 安装 Apple 设备，并完成 iPhone 信任配对。")
 
+    def install_apple_devices(self):
+        winget = shutil.which("winget.exe")
+        if not winget:
+            self.open_apple_store()
+            return
+        if not messagebox.askyesno(
+            "安装 Apple 设备",
+            "通过 Microsoft Store 下载并安装 Apple 设备及其 USB 支持。"
+            "继续即同意商店来源和软件包的安装条款。",
+            parent=self.root,
+        ):
+            return
+        self.install_button.configure(state="disabled")
+        self.start_button.configure(state="disabled")
+        self.status.set("正在通过 Microsoft Store 安装 Apple 设备…")
+        threading.Thread(target=self.run_apple_install, args=(winget,), daemon=True).start()
+
+    def open_apple_store(self):
+        try:
+            os.startfile(APPLE_STORE_URI)
+        except OSError:
+            from webbrowser import open as open_url
+
+            open_url(f"https://apps.microsoft.com/detail/{APPLE_DEVICES_ID}")
+        self.status.set("请在 Microsoft Store 安装 Apple 设备，再连接并解锁 iPhone。")
+
+    def run_apple_install(self, winget):
+        command = [
+            winget, "install", "--id", APPLE_DEVICES_ID, "--source", "msstore", "--exact",
+            "--no-upgrade", "--accept-source-agreements", "--accept-package-agreements",
+            "--disable-interactivity",
+        ]
+        try:
+            result = subprocess.run(command, creationflags=subprocess.CREATE_NO_WINDOW, check=False)
+        except OSError:
+            self.messages.put(("install_done", False))
+        else:
+            self.messages.put(("install_done", result.returncode == 0))
+
     def start(self):
         if self.worker is not None:
             return
@@ -252,6 +307,7 @@ class LocationApp:
         self.lon_entry.configure(state="readonly")
         self.start_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
+        self.install_button.configure(state="disabled")
         self.worker.start()
 
     def stop(self):
@@ -272,7 +328,15 @@ class LocationApp:
                 kind, message = self.messages.get_nowait()
             except queue.Empty:
                 break
-            if kind == "done":
+            if kind == "install_done":
+                self.install_button.configure(state="normal")
+                self.start_button.configure(state="normal")
+                if message:
+                    self.launch_apple_devices()
+                    self.status.set("Apple 设备已就绪。请连接 iPhone 并完成信任配对。")
+                else:
+                    self.open_apple_store()
+            elif kind == "done":
                 if self.closing:
                     self.root.destroy()
                     return
@@ -280,6 +344,7 @@ class LocationApp:
                 self.selector.configure(state="readonly")
                 self.start_button.configure(state="normal")
                 self.stop_button.configure(state="disabled")
+                self.install_button.configure(state="normal")
                 self.map.pick_enabled = True
                 self.select_place(recenter=False)
                 self.status.set(message)
@@ -354,7 +419,7 @@ class LocationApp:
             elif connected:
                 result = f"连接中断（{type(error).__name__}）。请保持 iPhone 解锁、插线后重试。"
             else:
-                result = "未连接到 iPhone。请打开 Apple 设备，解锁手机并完成信任，再试一次。"
+                result = "未连接到 iPhone。请打开 Apple 设备、解锁并信任。缺少驱动时可点「安装 Apple USB 支持」。"
         if self.stopped.is_set() and not sent:
             result = "已停止。"
         self.messages.put(("done", result))

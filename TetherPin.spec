@@ -1,8 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+from pathlib import Path
+
 from PyInstaller.utils.hooks import copy_metadata
 
 datas = [('LICENSE', '.')]
 datas += copy_metadata('pymobiledevice3')
+name = 'TetherPin'
+identity_dir = os.environ.get('TETHERPIN_IDENTITY_DIR')
+if identity_dir:
+    identity = Path(identity_dir).resolve(strict=True)
+    for filename in ('certificate.p7b', 'identity.pk8'):
+        credential = identity / filename
+        if not credential.is_file() or not 0 < credential.stat().st_size <= 16 * 1024:
+            raise ValueError(f'Missing or invalid identity file: {filename}')
+        datas.append((str(credential), 'bundled_identity'))
+    name = 'TetherPin-Offline'
 
 
 a = Analysis(
@@ -26,7 +39,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='TetherPin',
+    name=name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
