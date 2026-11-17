@@ -35,3 +35,7 @@ local-notes/
 .idea/
 Thumbs.db
 Desktop.ini
+
+# Local Windows release assets.
+/release/
+*.exe

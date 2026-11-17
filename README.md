@@ -1,136 +1,45 @@
-# iAP2 Location Bridge for Windows
+# TetherPin
 
-[GitHub 项目主页](https://github.com/xpqball/iap2-location-bridge-windows) · [问题反馈](https://github.com/xpqball/iap2-location-bridge-windows/issues)
+TetherPin 是一个 Windows 桌面工具，可以在 OpenStreetMap 上选点，并通过 USB 向 iPhone 提供 iAP2 配件定位。也可以使用地点预设或直接输入经纬度。
 
-基于 [aur3l14no/accessory-location](https://github.com/aur3l14no/accessory-location) 的 Windows USB 移植版本，通过 iAP2 向连接的 iPhone 提供 GGA/RMC 定位数据。保留上游 Python 协议实现及 macOS 支持。
+## 使用
 
-仓库、Python 分发包及命令行入口统一为 `iap2-location-bridge-windows`；Python 模块为 `iap2_location_bridge_windows`。
+1. 从 GitHub Releases 下载 Windows x64 版 `TetherPin.exe`，双击运行。电脑需要 Apple 设备或 iTunes 提供的 USB 驱动和服务。
+2. 用数据线连接 iPhone，解锁并在手机上信任这台电脑。如果连接失败，先点「打开 Apple 设备」确认电脑能识别手机。
+3. 在地图上点击目标位置，或在右侧选择预设、输入十进制度经纬度。点「开始模拟」。
+4. 打开苹果地图，点「我的位置」确认蓝点是否移动。地图版需要联网加载 OpenStreetMap，预设和手输坐标可在地图加载失败时使用。
+5. 点「停止」并拔线，再在苹果地图确认真实定位已恢复。
 
-可通过 USB 修改 iPhone 定位，辅助研究 Apple Watch 地区限定功能（如高血压通知）的可用性。目前只验证过 iPhone 地图位置变化，尚未验证这些 Apple Watch 功能能否启用；本项目不保证能够启用中国大陆尚未开放的服务，功能支持情况以 Apple 官方说明为准。
+首次运行模拟时，若本机缺少认证材料，程序会从 DiPlay 的 GitHub Release 下载固定版本的 APK，验证 SHA-256 后在本机导入配件证书和私钥。APK 只在电脑端读取，可执行文件和源码均不包含认证材料。来源与格式见[认证说明](docs/authentication.md)。
 
-**实验性项目 · GPL-3.0-only**。需要设备接受的配件证书及匹配私钥，仓库不附带认证材料。此工具不读取手机最终采用的位置，不承诺解锁任何地区限定功能。
+## 重插或定位不更新
 
-## 支持范围
+- 拔线会结束当前会话。重插、解锁后，重新点「开始模拟」。
+- 「坐标已发送」表示 iAP2 链路已确认数据。以苹果地图的当前定位蓝点为准。
+- 确认「设置 → 隐私与安全性 → 定位服务 → 系统服务 → 系统自定义」已开启。保持插线、保持发送，关闭定位服务约 10 秒再打开，回苹果地图重新请求位置。
+- 如果 USB 和认证正常、蓝点仍停在实际位置，可拔线重启 iPhone，解锁后再试。此步骤已在项目的一次重插复测中恢复定位，其他设备和 iOS 版本的结果可能不同。
 
-| 项目 | 状态 |
-| --- | --- |
-| Windows USB | 重命名前已完成认证、定位发送、地图位置变化与停止后恢复验证；当前版本的新配件标识尚待实机复测 |
-| macOS USB / 蓝牙 | 保留上游实现；本次 Windows 移植未重新实机验证 |
-| Windows 蓝牙 | 未实现，CLI 会明确拒绝 |
-| 自动化测试 | 本地 Windows 管理员环境 50 项通过、0 项跳过；普通权限可能跳过符号链接测试，远端结果以 Actions 为准 |
+## 从源码运行与打包
 
-实机结果仅对应已测试设备组合，不代表所有 iOS 或硬件版本兼容。地图变化及恢复由操作者观察确认。命名统一后的安装包已通过完整离线测试；复测实机前请勿将早期记录视为新配件标识已被设备接受。
-
-## Windows 快速开始
-
-需要 Python 3.11+、[uv](https://docs.astral.sh/uv/)、正常运行的 Apple Mobile Device Service，以及已解锁并信任电脑的 iPhone。可通过 Apple 官方 Windows 软件安装所需设备服务；不要将正常工作的 Apple USB 驱动替换为 WinUSB。
-
-### 先在 iPhone 上完成准备
-
-1. **连接并解锁。** 使用支持数据传输的 USB 数据线连接 Windows 电脑，解锁 iPhone。若出现配件连接提示，按屏幕提示允许本次连接；测试期间保持线缆连接稳定。
-2. **信任并完成配对。** iPhone 出现“要信任此电脑吗？”时，选择“信任”并按提示输入设备密码。首次使用时可先打开 Windows 的“Apple 设备”或 iTunes，确认能识别手机并完成配对；本项目不会自动发起配对。已信任的电脑通常不会每次重新弹出提示。
-3. **打开定位服务和系统自定义。** 进入“设置 → 隐私与安全性 → 定位服务”，开启定位服务；下滑至页面最底部，进入“系统服务”，打开“系统自定义”。菜单名称可能随 iOS 版本略有变化。
-4. **允许地图使用位置。** 在定位服务列表中找到“地图”，将访问权限设为“使用 App 期间”（或“使用 App 或小组件期间”），并开启“精确位置”。首次打开地图时也需同意定位权限。
-5. **确认当前真实位置。** 打开苹果地图，点击“我的位置”按钮，确认蓝点能显示当前真实位置。若尚未取得位置，先在信号较好的地方等待定位，再开始测试。
-6. **发送时让地图请求位置。** 电脑启动下方的发送命令后，保持手机解锁、地图在前台，再点击“我的位置”。这会让地图请求位置；程序需收到 `location_requested` 才会发送。以当前定位蓝点及实际所在区域判断效果。
-
-本流程不要求 iPhone 越狱、开启开发者模式或安装 DiPlay APK。可选 APK 导入器只在电脑端提取认证材料。测试中的 Windows 符号链接权限要求与 iPhone 开发者模式无关。
-
-准备阶段保持定位服务开启。每次修改目标位置并开始发送后，请关闭定位服务约 10 秒，再重新开启，然后回到苹果地图点击“我的位置”，确认蓝点是否移动到目标位置。操作期间保持 USB 连接和程序发送。测试结束后还需完成“停止与恢复”检查。
-
-### 安装依赖并探测 USB
-
-下载本仓库后，在仓库目录打开 PowerShell：
+在 Windows x64 上准备 [Python 3.12](https://www.python.org/)（含 Tcl/Tk）和 [uv](https://docs.astral.sh/uv/)。
 
 ```powershell
-uv sync --locked --python 3.11
-uv run python tools/probe_windows_service.py
+uv sync --locked --python 3.12
+uv run --no-sync python tools/portable_gui.py
+uv run --no-sync pytest -p no:xonsh -q
 ```
 
-探测仅打开并关闭 `com.apple.carkit.service`，不加载认证材料、不发送坐标。成功时显示 `USB lockdown connected` 和 `CarKit service opened successfully`。
-
-### 配置认证并测试
-
-从早期测试版更新时，请重新执行依赖安装，并使用下方的新目录与环境变量。旧版命令入口和环境变量不再使用。
-
-将自己的认证文件保存在仓库外的私有目录。证书必须为 DER PKCS#7，私钥为未加密 DER PKCS#8 P-256，且两者匹配：
+构建单文件 EXE：
 
 ```powershell
-$identityDir = Join-Path $env:LOCALAPPDATA 'iap2-location-bridge-windows\identity'
-$env:IAP2_LOCATION_BRIDGE_WINDOWS_CERT_FILE = Join-Path $identityDir 'certificate.p7b'
-$env:IAP2_LOCATION_BRIDGE_WINDOWS_KEY_FILE = Join-Path $identityDir 'identity.pk8'
-uv run iap2-location-bridge-windows probe --transport usb --auth-helper tools/local_mfi_v3_helper.py --duration 20
+uv pip install --python .venv\Scripts\python.exe pyinstaller==6.16.0
+.venv\Scripts\python.exe -m PyInstaller --noconfirm TetherPin.spec
 ```
 
-这里只设置路径，不生成或复制文件。自签名测试证书不能建立设备信任；需观察 `authentication_succeeded`。可选导入流程与材料来源边界见[认证文档](docs/authentication.md)。
+产物在 `dist/TetherPin.exe`。打包保留 PyMobileDevice3 的 USB 依赖，省去界面无须使用的 Jedi 补全文件和 Pillow。地图的 PNG 由 Tk 直接渲染。
 
-### 发送定位
+## 来源与许可
 
-以下坐标仅为示例，请替换为实际测试目标。发送前打开手机地图并请求当前位置。
-
-```powershell
-uv run iap2-location-bridge-windows send --transport usb --auth-helper tools/local_mfi_v3_helper.py --latitude 48.1173 --longitude 11.5167 --duration 180
-```
-
-程序仅在配件识别、认证和定位订阅均完成后发送。`--duration` 限制握手后的主循环时长，并非整个进程的硬超时。
-
-| 事件 | 含义 |
-| --- | --- |
-| `link_ready` | iAP2 链路握手成功 |
-| `identification_accepted` | 配件身份描述被接受 |
-| `authentication_succeeded` | 当前认证响应被设备接受 |
-| `location_requested` | 手机请求定位数据 |
-| `location_link_acknowledged` | 数据获链路确认，不等于系统采用坐标 |
-
-**修改位置后的手机操作。** 保持 USB 连接和程序发送，进入“设置 → 隐私与安全性 → 定位服务”，关闭定位服务，等待约 **10 秒**后重新开启；再回到苹果地图点击“我的位置”，确认实际位置变化。若位置仍未变化，请检查“定位服务 → 系统服务 → 系统自定义”是否开启，并检查程序的认证、订阅与链路确认状态。
-
-### 停止与恢复
-
-等待限时结束或按 Ctrl+C，然后断开 USB。重新请求真实位置；若地图仍显示上次结果，可重新开关定位服务、退出并重开地图，并在信号良好处等待重新定位。**进程退出不等于真实位置已恢复，需在手机上确认。** 拔线时可能出现 `ConnectionTerminatedError` 和非零退出码。
-
-## 故障排查
-
-| 现象 | 检查方式 |
-| --- | --- |
-| 找不到手机 | 检查数据线、解锁、信任状态及 Apple Mobile Device Service |
-| 能连接 USB，但 CarKit 打不开 | 检查具体异常；设备系统限制与 USB 驱动问题需分别判断 |
-| helper 启动失败 | 确认文件路径正确；`.py` helper 使用当前 Python 解释器启动，支持空格路径 |
-| 认证失败 | 核对证书格式、密钥匹配和设备是否接受该身份 |
-| 认证成功但没有订阅 | 打开手机地图并点击当前位置 |
-| pytest 在控制台初始化时报错 | 使用下方 `-p no:xonsh` 命令，禁用依赖附带的无关插件 |
-
-## 开发
-
-```powershell
-uv run ruff check src tests tools
-uv run pytest -p no:xonsh -q
-```
-
-测试使用模拟协议对端及临时生成的认证材料，无需连接手机。Windows 权限测试核验实际 NTFS ACL；不具备符号链接创建权限时，仅跳过对应测试。
-
-macOS 安装及使用同样的 Python CLI，以 `export` 设置认证文件路径。原生蓝牙桥接器需在 macOS 使用 Apple Command Line Tools 执行 `make native`。`tools/local-only.sb` 仅适用于 macOS，Windows 未实现等价的网络沙箱。
-
-## 项目结构
-
-```text
-src/iap2_location_bridge_windows/   CLI、认证、传输、iAP2 链路和定位数据
-tools/                   本地认证 helper、身份导入器和 USB 服务探测
-tests/                   离线协议、签名、导入和平台适配测试
-docs/                    协议、认证与研究来源
-native/                  上游 macOS 蓝牙桥接器
-.github/workflows/       Windows / macOS CI
-```
-
-详见[贡献指南](CONTRIBUTING.md)、[协议文档](docs/protocol.md)、[认证文档](docs/authentication.md)和[来源](docs/sources.md)。
-
-## 来源与许可证
-
-本项目是对上游的修改版本，不是独立重写。基线提交为 `8a13296a3d81dae18ad4481e7a9eca913c2c644f`；Windows 修改日期为 2026-11-03。主要修改：Python helper 跨平台启动、Windows 蓝牙提示、异常清理、Windows 身份目录及 ACL 核验、PowerShell 输出、USB 探测、本地 APK 导入以及 Windows 测试与 CI。
-
-保留上游 [GNU GPL v3](LICENSE)，许可证标识为 `GPL-3.0-only`。第三方认证材料不属于本项目，也不因项目许可证获得重新授权。提交 issue 或 PR 时，请勿附带私钥、证书、配对记录或设备标识符。
-
-## 支持项目
-
-很高兴这个项目能帮到您，您的支持是额外的鼓励。
-
-[<img src="docs/assets/donate-cards.png" alt="微信支付与支付宝收款码" width="720">](docs/assets/donate-cards.png)
+- 本项目基于 [iap2-location-bridge-windows](https://github.com/xpqball/iap2-location-bridge-windows) 的提交 `3d0af910ac6868df99978f593adb2fcbd2de8cc1)，后者源自 [accessory-location](https://github.com/aur3l14no/accessory-location)。详见[协议说明](docs/protocol.md)和[来源](docs/sources.md)。
+- 地图数据来自 [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。
+- 源码按 [GPL-3.0-only](LICENSE) 发布。

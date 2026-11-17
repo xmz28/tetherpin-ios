@@ -17,20 +17,22 @@ def emit(**event):
     print(json.dumps(event, ensure_ascii=False), flush=True)
 
 
-async def run(args):
+async def run(args, *, provider=None, report=emit):
     phone = None
     link = None
-    auth = AuthenticationProvider(args.auth_helper) if args.auth_helper else None
+    auth = provider
+    if auth is None and args.auth_helper:
+        auth = AuthenticationProvider(args.auth_helper)
     try:
         local_address = None
         if args.transport == "usb":
             phone = await create_using_usbmux(connection_type="USB", autopair=False)
-            emit(event="device_connected", transport="usb")
+            report(event="device_connected", transport="usb")
             stream = await phone.start_lockdown_service("com.apple.carkit.service")
         else:
             local_address = await controller_address(args.bluetooth_helper)
             stream = await BluetoothStream.open(args.bluetooth_helper, args.device)
-        link = Link(stream, emit)
+        link = Link(stream, report)
         if args.transport == "bluetooth":
             await stream.detect()
         await link.handshake()
@@ -46,7 +48,7 @@ async def run(args):
                 message = None
             if message is not None:
                 fields = parameters(message.body)
-                emit(
+                report(
                     event="message",
                     identifier=f"0x{message.identifier:04x}",
                     parameters=[{"id": i, "bytes": len(b)} for i, b in fields],
@@ -55,7 +57,7 @@ async def run(args):
                     await link.send(identity(args.transport, local_address))
                 elif message.identifier == 0x1D02:
                     identified = True
-                    emit(event="identification_accepted")
+                    report(event="identification_accepted")
                 elif message.identifier == 0x1D03:
                     raise RuntimeError(f"Identification rejected: {[i for i, _ in fields]}")
                 elif message.identifier == 0xAA00:
@@ -75,7 +77,7 @@ async def run(args):
                     await link.send(await auth.sign(challenges[0]))
                 elif message.identifier == 0xAA05:
                     authenticated = True
-                    emit(event="authentication_succeeded")
+                    report(event="authentication_succeeded")
                 elif message.identifier == 0xAA04:
                     raise RuntimeError("Accessory authentication failed")
                 elif message.identifier == 0xFFFA:
@@ -86,10 +88,10 @@ async def run(args):
                         if i in (0x8001, 0x8002) and len(b) == 4
                     }
                     last_sent.clear()
-                    emit(event="location_requested", sentences=sorted(active))
+                    report(event="location_requested", sentences=sorted(active))
                 elif message.identifier == 0xFFFC:
                     active.clear()
-                    emit(event="location_stopped")
+                    report(event="location_stopped")
             if args.command == "send" and identified and authenticated and active:
                 now = asyncio.get_running_loop().time()
                 due = sorted(
@@ -103,8 +105,8 @@ async def run(args):
                     last_sent.update({i: now for i in due})
                     sent_count += 1
                     if sent_count == 1 or sent_count % 10 == 0:
-                        emit(event="location_link_acknowledged", count=sent_count)
-        emit(
+                        report(event="location_link_acknowledged", count=sent_count)
+        report(
             event="finished",
             identified=identified,
             authenticated=authenticated,
