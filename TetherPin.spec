@@ -27,7 +27,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['matplotlib', 'pandas', 'numpy', 'jedi', 'parso', 'PIL'],
+    excludes=['matplotlib', 'pandas', 'numpy', 'jedi', 'parso'],
     noarchive=False,
     optimize=0,
 )

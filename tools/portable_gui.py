@@ -110,6 +110,7 @@ class LocationApp:
         self.stopped = threading.Event()
         self.worker = None
         self.closing = False
+        self.locating = False
         self.place = tk.StringVar(value=next(iter(PRESETS)))
         self.latitude = tk.StringVar()
         self.longitude = tk.StringVar()
@@ -205,6 +206,8 @@ class LocationApp:
         )
         self.install_button.grid(row=8, sticky="ew", pady=(7, 0))
 
+        self.location_button = ttk.Button(side, text="本机位置", command=self.locate_computer)
+        self.location_button.grid(row=9, sticky="ew", pady=(7, 0))
         root.protocol("WM_DELETE_WINDOW", self.close)
         self.select_place()
         root.after(75, self.poll)
@@ -289,8 +292,27 @@ class LocationApp:
         else:
             self.messages.put(("install_done", result.returncode == 0))
 
+    def locate_computer(self):
+        if self.worker or self.locating:
+            return
+        self.locating = True
+        self.location_button.configure(state="disabled")
+        self.start_button.configure(state="disabled")
+        self.status.set("正在获取 Windows 位置（可使用 Wi-Fi 等定位来源）…")
+        threading.Thread(target=self.query_computer_location, daemon=True).start()
+
+    def query_computer_location(self):
+        from computer_location import locate_computer
+
+        try:
+            position = locate_computer(self.update)
+        except Exception:
+            self.messages.put(("location_done", None))
+        else:
+            self.messages.put(("location_done", position))
+
     def start(self):
-        if self.worker is not None:
+        if self.worker is not None or self.locating:
             return
         try:
             latitude, longitude = self.coordinates()
@@ -308,6 +330,7 @@ class LocationApp:
         self.start_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
         self.install_button.configure(state="disabled")
+        self.location_button.configure(state="disabled")
         self.worker.start()
 
     def stop(self):
@@ -328,7 +351,18 @@ class LocationApp:
                 kind, message = self.messages.get_nowait()
             except queue.Empty:
                 break
-            if kind == "install_done":
+            if kind == "location_done":
+                self.locating = False
+                self.location_button.configure(state="normal")
+                self.start_button.configure(state="normal")
+                if message:
+                    latitude, longitude, source = message
+                    self.pick_location(latitude, longitude)
+                    self.map.set_pin(latitude, longitude, recenter=True)
+                    self.status.set(f"已选取{source}。可在地图上微调后开始模拟。")
+                else:
+                    self.status.set("本机定位失败。请检查 Windows 定位权限和网络，或在地图上选点。")
+            elif kind == "install_done":
                 self.install_button.configure(state="normal")
                 self.start_button.configure(state="normal")
                 if message:
@@ -345,6 +379,7 @@ class LocationApp:
                 self.start_button.configure(state="normal")
                 self.stop_button.configure(state="disabled")
                 self.install_button.configure(state="normal")
+                self.location_button.configure(state="normal")
                 self.map.pick_enabled = True
                 self.select_place(recenter=False)
                 self.status.set(message)

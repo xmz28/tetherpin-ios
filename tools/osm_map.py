@@ -1,5 +1,5 @@
 """Interactive OpenStreetMap tiles and Web Mercator coordinates."""
-import base64
+import io
 import math
 import os
 import queue
@@ -14,6 +14,8 @@ from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from tkinter import ttk
+
+from PIL import Image, ImageTk
 
 TILE = 256
 MAX_LATITUDE = 85.05112878
@@ -101,6 +103,9 @@ class MapPicker(ttk.Frame):
         super().__init__(parent, style="Map.TFrame")
         self.on_pick = on_pick
         self.zoom = 12
+        self.target_zoom = 12
+        self.animation = None
+        self.frame_images = []
         self.center_lat, self.center_lon = 22.3193, 114.1694
         self.pin = None
         self.pick_enabled = True
@@ -161,27 +166,54 @@ class MapPicker(ttk.Frame):
     def schedule_redraw(self, _event=None):
         if self.redraw_job is not None:
             self.after_cancel(self.redraw_job)
-        self.redraw_job = self.after(55, self.redraw)
+        self.redraw_job = self.after(16, self.redraw)
 
     def redraw(self):
         self.redraw_job = None
         width, height, left, top = self.viewport()
         self.canvas.delete("all")
-        count = 2**self.zoom
+        level = round(self.zoom)
+        scale = 2 ** (self.zoom - level)
+        tile_size = TILE * scale
+        count = 2**level
         positions = [
-            ((self.zoom, x % count, y), int(x * TILE - left), int(y * TILE - top))
-            for y in range(max(0, math.floor(top / TILE)), min(count, math.ceil((top + height) / TILE)))
-            for x in range(math.floor(left / TILE), math.ceil((left + width) / TILE))
+            ((level, x % count, y), int(x * tile_size - left), int(y * tile_size - top))
+            for y in range(max(0, math.floor(top / tile_size)), min(count, math.ceil((top + height) / tile_size)))
+            for x in range(math.floor(left / tile_size), math.ceil((left + width) / tile_size))
         ]
         visible = {key for key, _, _ in positions}
         for key, future in list(self.pending.items()):
             if key not in visible and future.cancel():
                 del self.pending[key]
-        self.images = {key: image for key, image in self.images.items() if key in visible}
+        # Keep recently viewed levels as a visual fallback while new tiles arrive.
+        while len(self.images) > 180:
+            victim = next((key for key in self.images if key not in visible), None)
+            if victim is None:
+                break
+            del self.images[victim]
+        self.frame_images = []
+        size = TILE * 2**self.zoom
+        for key, source in sorted(self.images.items(), key=lambda item: abs(item[0][0] - self.zoom), reverse=True):
+            z, tx, ty = key
+            factor = 2 ** (self.zoom - z)
+            edge = TILE * factor
+            x = (tx * edge - left + size / 2) % size - size / 2
+            if x + edge < 0:
+                x += size
+            y = ty * edge - top
+            if x >= width or y >= height or x + edge <= 0 or y + edge <= 0:
+                continue
+            # Crop before scaling so large zoom changes never allocate giant images.
+            crop = (max(0, -x / factor), max(0, -y / factor),
+                    min(TILE, (width - x) / factor), min(TILE, (height - y) / factor))
+            dx, dy = max(0, x), max(0, y)
+            target = (max(1, round((crop[2]-crop[0])*factor)),
+                      max(1, round((crop[3]-crop[1])*factor)))
+            image = ImageTk.PhotoImage(source.resize(target, Image.Resampling.BILINEAR, box=crop))
+            self.frame_images.append(image)
+            self.canvas.create_image(round(dx), round(dy), anchor="nw", image=image)
         for key, x, y in positions:
-            if key in self.images:
-                self.canvas.create_image(x, y, anchor="nw", image=self.images[key])
-            elif self.cache and key not in self.pending and key not in self.failed:
+            if key not in self.images and self.cache and key not in self.pending and key not in self.failed:
                 self.pending[key] = self.pool.submit(self.load_tile, key)
         if not self.images and (not self.cache or visible <= self.failed):
             self.canvas.create_text(
@@ -190,7 +222,7 @@ class MapPicker(ttk.Frame):
             )
         if self.pin is not None:
             x, y = project(*self.pin, self.zoom)
-            size = count * TILE
+            size = TILE * 2**self.zoom
             x = (x - left - width / 2 + size / 2) % size - size / 2 + width / 2
             y -= top
             self.canvas.create_oval(x - 11, y - 11, x + 11, y + 11,
@@ -212,10 +244,10 @@ class MapPicker(ttk.Frame):
             except queue.Empty:
                 break
             self.pending.pop(key, None)
-            if data is not None and key[0] == self.zoom:
+            if data is not None:
                 try:
-                    self.images[key] = tk.PhotoImage(data=base64.b64encode(data), format="png")
-                except tk.TclError:
+                    self.images[key] = Image.open(io.BytesIO(data)).convert("RGB")
+                except (OSError, ValueError):
                     self.failed.add(key)
             elif data is None:
                 self.failed.add(key)
@@ -225,19 +257,30 @@ class MapPicker(ttk.Frame):
         self.after(70, self.poll)
 
     def change_zoom(self, step, point=None):
-        zoom = max(2, min(19, self.zoom + step))
-        if zoom == self.zoom:
-            return
+        self.target_zoom = max(2, min(19, self.target_zoom + step))
+        if self.animation is not None:
+            self.after_cancel(self.animation)
         width, height, left, top = self.viewport()
         x, y = point if point is not None else (width / 2, height / 2)
         anchor = unproject(left + x, top + y, self.zoom)
-        self.zoom = zoom
-        world_x, world_y = project(*anchor, zoom)
-        self.center_lat, self.center_lon = unproject(
-            world_x + width / 2 - x, world_y + height / 2 - y, zoom,
-        )
+        initial = self.zoom
+        started = time.monotonic()
         self.failed.clear()
-        self.schedule_redraw()
+
+        def frame():
+            fraction = min(1, (time.monotonic() - started) / 0.22)
+            eased = 1 - (1 - fraction)**3
+            self.zoom = initial + (self.target_zoom - initial) * eased
+            world_x, world_y = project(*anchor, self.zoom)
+            self.center_lat, self.center_lon = unproject(
+                world_x + width / 2 - x, world_y + height / 2 - y, self.zoom,
+            )
+            if self.redraw_job is not None:
+                self.after_cancel(self.redraw_job)
+            self.redraw()
+            self.animation = self.after(16, frame) if fraction < 1 else None
+
+        frame()
 
     def wheel(self, event):
         if event.delta:

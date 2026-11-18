@@ -12,6 +12,12 @@ TetherPin 是一个 Windows 桌面工具，可以在 OpenStreetMap 上选点，�
 
 首次运行模拟时，若本机缺少认证材料，程序会从 DiPlay 的 GitHub Release 下载固定版本的 APK，验证 SHA-256 后在本机导入配件证书和私钥。APK 只在电脑端读取。公开版 `TetherPin.exe` 和 Git 源码均不包含认证材料。来源与格式见[认证说明](docs/authentication.md)。
 
+## 地图缩放与本机位置
+
+点击加减号或滚动鼠标可平滑缩放。新瓦片尚未到达时保留已浏览地图作过渡，并复用内存和磁盘缓存。
+
+点「本机位置」会先查询 Windows 定位服务。系统会根据可用定位来源（包括 Wi-Fi）返回结果，需要 Windows 已允许定位访问。系统不可用或超时后，程序通过 HTTPS 向 ipwho.is 查询出口 IP 的大致位置。IP 定位可能显示 VPN 或宽带出口位置。定位结果会填入坐标并把地图移动到附近，用户仍需点击「开始模拟」才会发送。程序启动时仍默认香港九龙。
+
 ## 重插或定位不更新
 
 - 拔线会结束当前会话。重插、解锁后，重新点「开始模拟」。
@@ -36,7 +42,7 @@ uv pip install --python .venv\Scripts\python.exe pyinstaller==6.16.0
 .venv\Scripts\python.exe -m PyInstaller --noconfirm TetherPin.spec
 ```
 
-产物在 `dist/TetherPin.exe`。打包保留 PyMobileDevice3 的 USB 依赖，省去界面无须使用的 Jedi 补全文件和 Pillow。地图的 PNG 由 Tk 直接渲染。
+产物在 `dist/TetherPin.exe`。打包保留 PyMobileDevice3 的 USB 依赖，省去界面无须使用的 Jedi 补全文件。地图使用 Pillow 实现缩放过渡，最多保留 180 张已浏览瓦片用于画面缓冲。
 
 ### 自用版内置认证材料
 
