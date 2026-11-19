@@ -13,6 +13,7 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 from types import SimpleNamespace
 
+from author_links import LINKS, AuthorLink
 from osm_map import MapPicker
 
 from iap2_location_bridge_windows.auth import AuthenticationProvider
@@ -152,6 +153,11 @@ class LocationApp:
         ttk.Label(header, text="TetherPin", style="Header.TLabel").pack(side="left")
         ttk.Label(header, text="点击地图选点 · 拖动平移 · 滚轮缩放",
                   style="Subtitle.TLabel").pack(side="right", pady=(11, 0))
+
+        footer = ttk.Frame(shell, style="Shell.TFrame")
+        footer.pack(side="bottom", fill="x", pady=(12, 0))
+        self.author_links = [AuthorLink(footer, *link) for link in LINKS]
+        ttk.Label(footer, text="Copyright © 2026 xmz28", style="Subtitle.TLabel").pack(side="right")
 
         content = ttk.Frame(shell, style="Shell.TFrame")
         content.pack(fill="both", expand=True)

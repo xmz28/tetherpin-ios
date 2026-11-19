@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PyInstaller.utils.hooks import copy_metadata
 
-datas = [('LICENSE', '.')]
+datas = [('LICENSE', '.'), ('assets', 'assets')]
 datas += copy_metadata('pymobiledevice3')
 name = 'TetherPin'
 identity_dir = os.environ.get('TETHERPIN_IDENTITY_DIR')
