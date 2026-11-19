@@ -15,12 +15,13 @@ Windows 上的 iPhone USB 配件定位工具。通过 OpenStreetMap 点击选点
 
 从本项目的 GitHub Releases 下载 Windows x64 EXE，双击运行。正式发布后的最新版会标记为 Latest。
 
-| 文件 | 认证材料 | 首次使用 |
-| --- | --- | --- |
-| TetherPin.exe | 按需下载并导入 | 本机没有认证缓存时需要联网 |
-| TetherPin-Offline.exe | EXE 内携带配件证书和匹配私钥 | 认证材料可离线使用 |
+发布提供一个 Windows x64 单文件程序 **TetherPin.exe**，内置配件证书和匹配私钥，首次使用也无需下载认证材料。源码仓库不包含证书和私钥。
 
-EXE 自带 Python 运行环境。Windows 仍需 Apple 设备或 iTunes 提供的 USB 驱动和服务。缺少时可点「安装 Apple USB 支持」，程序确认后通过 WinGet 从 Microsoft Store 安装 Apple 设备，失败时打开官方商店页面。
+启动时会在后台检查本机已安装的 Apple USB 驱动，无需先连接手机。检测到驱动后正常使用，缺少驱动时在状态栏提示安装。权限导致检测无法完成时，可通过安装入口和 Apple 设备手动确认。
+
+右侧入口从上至下为「本机位置」「安装 USB 支持」「打开 Apple 设备」「抖音主页」「请我喝杯咖啡 · 支付宝」。作者入口悬停显示二维码，点击打开网页。
+
+EXE 自带 Python 运行环境。Windows 仍需 Apple 设备或 iTunes 提供的 USB 驱动和服务。缺少时可点「安装 USB 支持」，程序确认后通过 WinGet 从 Microsoft Store 安装 Apple 设备，失败时打开官方商店页面。
 
 地图加载、IP 定位和驱动安装需要网络。EXE 当前未做 Authenticode 签名。
 
@@ -58,7 +59,7 @@ EXE 自带 Python 运行环境。Windows 仍需 Apple 设备或 iTunes 提供的
 
 ## 认证材料与本地数据
 
-公开源码不包含配件私钥。普通版首次需要时下载固定版本的 DiPlay APK，校验 SHA-256 后仅在电脑端提取配件证书和私钥。APK 不会安装到 iPhone。离线版将相同配件身份打入 EXE，内置数据可被提取。
+发布的 TetherPin.exe 内置共享配件证书和匹配私钥，内置数据可被提取。源码仓库排除这些文件。源码运行时，本机缺少身份材料则按需下载固定版本 DiPlay APK，校验 SHA-256 后在电脑端提取认证材料，APK 不会安装到 iPhone。
 
 该共享身份来自 DiPlay 所引用的 Carlinkit 固件，第三方认证材料没有按本项目 GPL 许可证重新授权，详见[认证材料来源与边界](docs/authentication.md)。
 
@@ -89,15 +90,15 @@ uv pip install --python .venv\Scripts\python.exe pyinstaller==6.16.0
 
 输出为 `dist/TetherPin.exe`。
 
-构建包含自己已准备好认证材料的版本：
+打包前在本机准备配件证书和匹配私钥。默认读取 `%LOCALAPPDATA%\iap2-location-bridge-windows\identity`，也可以使用环境变量指定：
 
 ```powershell
-$env:TETHERPIN_IDENTITY_DIR = Join-Path $env:LOCALAPPDATA 'iap2-location-bridge-windows\identity'
+$env:TETHERPIN_IDENTITY_DIR = 'C:\你的本机认证目录'
 .venv\Scripts\python.exe -m PyInstaller --noconfirm TetherPin.spec
 Remove-Item Env:TETHERPIN_IDENTITY_DIR
 ```
 
-该目录须包含 `certificate.p7b` 和 `identity.pk8`，产物为 `dist/TetherPin-Offline.exe`。构建使用 Pillow 进行地图缩放，保留 USB 依赖并排除不需要的 Jedi 补全文件。
+目录须包含 `certificate.p7b` 和 `identity.pk8`。构建会检查文件存在，再将其加入 EXE，缺少材料时会停止。产物统一为 `dist/TetherPin.exe`。这些材料与 EXE 都已在 Git 忽略规则中，公开源码只保留读取和打包逻辑。
 
 ## 关注与支持
 

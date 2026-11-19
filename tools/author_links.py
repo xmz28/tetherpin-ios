@@ -21,7 +21,7 @@ class AuthorLink:
         self.job = None
         self.photo = None
         self.button = ttk.Button(parent, text=text, command=self.open)
-        self.button.pack(side="left", padx=(0, 9))
+        self.button.pack(fill="x", pady=(7, 0))
         self.button.bind("<Enter>", self.enter)
         self.button.bind("<Leave>", self.leave)
         self.button.bind("<FocusIn>", self.enter)

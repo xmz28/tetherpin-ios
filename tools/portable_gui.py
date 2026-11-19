@@ -156,7 +156,6 @@ class LocationApp:
 
         footer = ttk.Frame(shell, style="Shell.TFrame")
         footer.pack(side="bottom", fill="x", pady=(12, 0))
-        self.author_links = [AuthorLink(footer, *link) for link in LINKS]
         ttk.Label(footer, text="Copyright © 2026 xmz28", style="Subtitle.TLabel").pack(side="right")
 
         content = ttk.Frame(shell, style="Shell.TFrame")
@@ -203,20 +202,30 @@ class LocationApp:
         self.stop_button.pack(side="left", padx=(7, 0))
         ttk.Label(side, textvariable=self.status, style="Status.TLabel", wraplength=206,
                   justify="left").grid(sticky="ew")
-        ttk.Button(side, text="打开 Apple 设备", command=self.launch_apple_devices).grid(
-            row=7, sticky="ew", pady=(14, 0),
-        )
-
+        self.location_button = ttk.Button(side, text="本机位置", command=self.locate_computer)
+        self.location_button.grid(row=7, sticky="ew", pady=(14, 0))
         self.install_button = ttk.Button(
-            side, text="安装 Apple USB 支持", command=self.install_apple_devices,
+            side, text="安装 USB 支持", command=self.install_apple_devices,
         )
         self.install_button.grid(row=8, sticky="ew", pady=(7, 0))
-
-        self.location_button = ttk.Button(side, text="本机位置", command=self.locate_computer)
-        self.location_button.grid(row=9, sticky="ew", pady=(7, 0))
+        ttk.Button(side, text="打开 Apple 设备", command=self.launch_apple_devices).grid(
+            row=9, sticky="ew", pady=(7, 0),
+        )
+        author_panel = ttk.Frame(side, style="Panel.TFrame")
+        author_panel.grid(row=10, sticky="ew")
+        self.author_links = [AuthorLink(author_panel, *link) for link in LINKS]
         root.protocol("WM_DELETE_WINDOW", self.close)
         self.select_place()
         root.after(75, self.poll)
+        root.after(300, self.check_usb_support)
+
+    def check_usb_support(self):
+        def check():
+            from usb_support import has_apple_usb_driver
+
+            self.messages.put(("usb_support", has_apple_usb_driver()))
+
+        threading.Thread(target=check, daemon=True).start()
 
     def pick_location(self, latitude, longitude):
         self.place.set(CUSTOM)
@@ -357,7 +366,10 @@ class LocationApp:
                 kind, message = self.messages.get_nowait()
             except queue.Empty:
                 break
-            if kind == "location_done":
+            if kind == "usb_support":
+                if message is False and self.worker is None and not self.locating:
+                    self.status.set("尚未检测到 Apple USB 驱动。请点「安装 USB 支持」完成安装。")
+            elif kind == "location_done":
                 self.locating = False
                 self.location_button.configure(state="normal")
                 self.start_button.configure(state="normal")
@@ -372,6 +384,7 @@ class LocationApp:
                 self.install_button.configure(state="normal")
                 self.start_button.configure(state="normal")
                 if message:
+                    self.check_usb_support()
                     self.launch_apple_devices()
                     self.status.set("Apple 设备已就绪。请连接 iPhone 并完成信任配对。")
                 else:
