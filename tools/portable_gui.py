@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 from author_links import LINKS, AuthorLink
 from osm_map import MapPicker
+from scroll_panel import ScrollPanel
 
 from iap2_location_bridge_windows.auth import AuthenticationProvider
 from iap2_location_bridge_windows.profile import coordinate
@@ -135,7 +136,7 @@ class LocationApp:
         style.configure("Section.TLabel", font=("Microsoft YaHei UI", 14, "bold"))
         style.configure("Quiet.TLabel", foreground="#50665d")
         style.configure("Status.TLabel", foreground="#244b3d", background="#e8f2ed", padding=12)
-        style.configure("TButton", padding=(9, 8), background="#edf2ef", foreground="#204638",
+        style.configure("TButton", padding=(9, 5), background="#edf2ef", foreground="#204638",
                         borderwidth=0, focusthickness=1)
         style.configure("Map.TButton", padding=(4, 2), background="#ffffff",
                         font=("Segoe UI", 13, "bold"))
@@ -146,10 +147,10 @@ class LocationApp:
         style.configure("TCombobox", padding=6, arrowsize=16)
         style.configure("TEntry", padding=6, fieldbackground="#f6f8f7")
 
-        shell = ttk.Frame(root, padding=(22, 17, 22, 22), style="Shell.TFrame")
+        shell = ttk.Frame(root, padding=(18, 12, 18, 12), style="Shell.TFrame")
         shell.pack(fill="both", expand=True)
         header = ttk.Frame(shell, style="Shell.TFrame")
-        header.pack(fill="x", pady=(0, 15))
+        header.pack(fill="x", pady=(0, 10))
         ttk.Label(header, text="TetherPin", style="Header.TLabel").pack(side="left")
         ttk.Label(header, text="点击地图选点 · 拖动平移 · 滚轮缩放",
                   style="Subtitle.TLabel").pack(side="right", pady=(11, 0))
@@ -164,13 +165,14 @@ class LocationApp:
         content.rowconfigure(0, weight=1)
         self.map = MapPicker(content, self.pick_location)
         self.map.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
-        side = ttk.Frame(content, style="Panel.TFrame", padding=(18, 18))
-        side.grid(row=0, column=1, sticky="ns")
+        self.sidebar = ScrollPanel(content)
+        self.sidebar.grid(row=0, column=1, sticky="nsew")
+        side = self.sidebar.body
         side.columnconfigure(0, weight=1)
         side.rowconfigure(6, weight=1)
 
         ttk.Label(side, text="目标位置", style="Section.TLabel").grid(sticky="w")
-        ttk.Label(side, text="地点预设", style="Quiet.TLabel").grid(sticky="w", pady=(17, 5))
+        ttk.Label(side, text="地点预设", style="Quiet.TLabel").grid(sticky="w", pady=(10, 4))
         self.selector = ttk.Combobox(
             side, textvariable=self.place, values=(*PRESETS, CUSTOM), state="readonly", width=25,
         )
@@ -193,7 +195,7 @@ class LocationApp:
                 self.lon_entry = entry
 
         actions = ttk.Frame(side, style="Panel.TFrame")
-        actions.grid(sticky="ew", pady=(17, 12))
+        actions.grid(sticky="ew", pady=(10, 8))
         self.start_button = ttk.Button(
             actions, text="开始模拟", style="Primary.TButton", command=self.start
         )
@@ -203,7 +205,7 @@ class LocationApp:
         ttk.Label(side, textvariable=self.status, style="Status.TLabel", wraplength=206,
                   justify="left").grid(sticky="ew")
         self.location_button = ttk.Button(side, text="本机位置", command=self.locate_computer)
-        self.location_button.grid(row=7, sticky="ew", pady=(14, 0))
+        self.location_button.grid(row=7, sticky="ew", pady=(9, 0))
         self.install_button = ttk.Button(
             side, text="安装 USB 支持", command=self.install_apple_devices,
         )

@@ -24,8 +24,6 @@ class AuthorLink:
         self.button.pack(fill="x", pady=(7, 0))
         self.button.bind("<Enter>", self.enter)
         self.button.bind("<Leave>", self.leave)
-        self.button.bind("<FocusIn>", self.enter)
-        self.button.bind("<FocusOut>", self.leave)
         self.button.bind("<Destroy>", self.destroy)
 
     def open(self, _event=None):
@@ -58,32 +56,16 @@ class AuthorLink:
                  font=("Microsoft YaHei UI", 10)).pack(pady=(6, 0))
         popup.update_idletasks()
         width, height = popup.winfo_reqwidth(), popup.winfo_reqheight()
-        x = min(self.button.winfo_rootx(), popup.winfo_screenwidth() - width - 8)
-        y = self.button.winfo_rooty() - height - 4
+        x = self.button.winfo_rootx() - width - 8
+        y = min(self.button.winfo_rooty(), popup.winfo_screenheight() - height - 8)
         if y < 0:
             y = self.button.winfo_rooty() + self.button.winfo_height() + 4
         popup.geometry(f"+{max(0, x)}+{max(0, y)}")
-        for widget in (popup, card, *card.winfo_children()):
-            widget.bind("<Enter>", self.enter)
-            widget.bind("<Leave>", self.leave)
-            widget.bind("<Button-1>", self.open)
-            widget.configure(cursor="hand2")
         popup.deiconify()
         popup.lift()
 
     def leave(self, _event=None):
         self.cancel()
-        self.job = self.button.after(180, self.hide_if_outside)
-
-    def hide_if_outside(self):
-        self.job = None
-        x, y = self.button.winfo_pointerxy()
-        for widget in (self.button, self.popup):
-            if widget is not None and (
-                widget.winfo_rootx() <= x < widget.winfo_rootx() + widget.winfo_width()
-                and widget.winfo_rooty() <= y < widget.winfo_rooty() + widget.winfo_height()
-            ):
-                return
         self.hide()
 
     def hide(self):
