@@ -9,11 +9,11 @@ Windows 上的 iPhone USB 配件定位工具。通过 OpenStreetMap 点击选点
 - 本机位置优先查询 Windows 定位服务，可利用 Wi-Fi 等系统定位来源，失败后查询出口 IP 的大致位置。
 - 开始和停止 USB 定位，显示连接、配件认证和坐标发送状态。
 - 提供官方 Apple 设备的安装入口。
-- 底部「抖音主页」「请我喝杯咖啡」悬停显示二维码，点击打开对应网页。二维码在入口左侧显示，鼠标离开入口即关闭。
+- 右侧「抖音主页」「请我喝杯咖啡」悬停显示二维码，点击打开对应网页。二维码在入口左侧显示，鼠标离开入口即关闭。
 
 ## 下载与运行
 
-从本项目的 GitHub Releases 下载 Windows x64 EXE，双击运行。正式发布后的最新版会标记为 Latest。
+从 [Latest Release](https://github.com/xmz28/tetherpin-ios/releases/latest) 下载 [TetherPin.exe](https://github.com/xmz28/tetherpin-ios/releases/latest/download/TetherPin.exe)，双击运行。
 
 发布提供一个 Windows x64 单文件程序 **TetherPin.exe**，内置配件证书和匹配私钥，首次使用也无需下载认证材料。源码仓库不包含证书和私钥。
 
@@ -118,4 +118,4 @@ Copyright © 2026 xmz28
 - 本项目基于 [iap2-location-bridge-windows](https://github.com/xpqball/iap2-location-bridge-windows) 的提交 `3d0af910ac6868df99978f593adb2fcbd2de8cc1`，上游源自 [accessory-location](https://github.com/aur3l14no/accessory-location)。
 - 协议与研究来源见[协议说明](docs/protocol.md)和[来源记录](docs/sources.md)。
 - 地图数据来自 [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。
-- 源码按 [GPL-3.0-only](LICENSE) 发布，依赖遵循各自许可证。
+- 源码按 [GPL-3.0-only](LICENSE) 发布，依赖遵循各自许可证，见[第三方声明](THIRD_PARTY_NOTICES.md)。

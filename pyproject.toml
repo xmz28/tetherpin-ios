@@ -1,7 +1,7 @@
 [project]
 name = "iap2-location-bridge-windows"
-version = "0.1.0"
-description = "iAP2 Location Bridge for Windows, with upstream macOS transport support"
+version = "1.0.0"
+description = "TetherPin Windows USB iPhone accessory location map picker"
 readme = "README.md"
 license = "GPL-3.0-only"
 license-files = ["LICENSE"]
@@ -14,8 +14,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/xpqball/iap2-location-bridge-windows"
-Issues = "https://github.com/xpqball/iap2-location-bridge-windows/issues"
+Repository = "https://github.com/xmz28/tetherpin-ios"
+Issues = "https://github.com/xmz28/tetherpin-ios/issues"
 Upstream = "https://github.com/aur3l14no/accessory-location"
 
 [project.scripts]
