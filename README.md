@@ -1,5 +1,7 @@
 # TetherPin
 
+**简体中文** · [English](README.en.md)
+
 Windows 上的 iPhone USB 配件定位工具。通过 OpenStreetMap 点击选点，或选择地点预设、输入经纬度，将目标坐标通过 iAP2 发送给已连接的 iPhone。默认位置为香港九龙。
 
 ## 功能
